@@ -1,4 +1,4 @@
-# Swarm Task Pipeline Skills
+# Coding Agent Farm
 
 Cursor skills for dispatching agent work through an n8n workflow:
 
