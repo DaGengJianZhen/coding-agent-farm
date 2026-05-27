@@ -1,0 +1,25 @@
+{
+  "parent_task_url": "https://yylfzxcmpc.feishu.cn/record/Kq3crfLZBeE5fLccEhtctLQUnYe",
+  "defaults": {
+    "priority": "Medium",
+    "task_type": "frontend",
+    "repository": "openclaw/web",
+    "team_id": "c9812f44-3c7c-42c8-b29a-5be7e155fe7a",
+    "model_label": "use-codex",
+    "agent_enabled": true
+  },
+  "issues": [
+    {
+      "key": "auth-schema",
+      "title": "设计登录数据结构",
+      "description": "确认登录接口需要的用户表字段和索引。"
+    },
+    {
+      "key": "login-api",
+      "title": "实现登录接口",
+      "description": "基于数据库 schema 实现登录接口。",
+      "task_type": "backend",
+      "depends_on": ["auth-schema"]
+    }
+  ]
+}
