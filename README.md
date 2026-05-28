@@ -10,9 +10,16 @@
 Workflow：**本地 Agent 创建 Linear Issue、Blocked By 关系并在飞书原表创建子任务**  
 Production webhook: `POST https://wildmaker.app.n8n.cloud/webhook/agent-to-linear`
 
-### Linear issue description format
+## Skill usage guide
 
-When creating an issue, include the base branch in the description on a single independent line near the top. Recommended format:
+This repository provides Cursor skills for assigning implementation work to coding agents through Linear and Feishu:
+
+- [`skills/assign-task-to-agent/SKILL.md`](skills/assign-task-to-agent/SKILL.md): create one Linear issue and linked Feishu child task.
+- [`skills/dispatch-tasks-to-agent/SKILL.md`](skills/dispatch-tasks-to-agent/SKILL.md): create multiple Linear issues from a prepared task list, including dependency relations.
+
+### Required base branch
+
+Every task created through these skills must explicitly state the base branch in the task description. Put it on a single independent line near the top. Recommended format:
 
 ```text
 Base branch: release/2026.05
@@ -34,6 +41,53 @@ Base branch: release/2026.05
 
 ## Acceptance
 ```
+
+The base branch tells the downstream agent where to branch from and which remote history contains the task context. Do not dispatch a task until the referenced base branch exists on remote and contains the documents needed to complete that task.
+
+### Single task dispatch
+
+Use `assign-task-to-agent` when assigning one independent task. Before creating the task, make sure:
+
+- The task description includes the base branch.
+- The referenced base branch has already been pushed to remote.
+- Any required PRD, design document, implementation plan, or task-specific context has already been committed and pushed to that base branch.
+
+### Batch task dispatch
+
+Use `dispatch-tasks-to-agent` when assigning multiple tasks in one batch. Before creating the batch, complete this preparation work:
+
+1. Create the shared base branch first, for example a `feature/*` branch.
+2. Break the feature into a concrete task list before dispatching.
+3. Commit and push the base branch to remote.
+4. Commit and push the task list and all complete reference documents needed by the tasks to remote.
+5. Mark the dependency relationship between tasks clearly before batch creation.
+
+The central agent executes tasks according to the dependency graph. Tasks without dependencies can start first. A task that depends on another task must wait until all of its predecessors have been created successfully, and the dispatcher will translate those dependencies into Linear `blocked_by` relations.
+
+In the batch spec, use stable local keys and `depends_on` to express dependencies:
+
+```json
+{
+  "defaults": {
+    "base_branch": "feature/login-flow"
+  },
+  "issues": [
+    {
+      "key": "auth-schema",
+      "title": "Design login schema",
+      "description": "Define user table fields and indexes."
+    },
+    {
+      "key": "login-api",
+      "title": "Implement login API",
+      "description": "Implement the login endpoint based on the schema.",
+      "depends_on": ["auth-schema"]
+    }
+  ]
+}
+```
+
+Do not batch-dispatch a loose idea list. The feature branch, task list, dependency graph, and full task documentation should all be available in remote before the first Linear issue is created.
 
 ## n8n MCP (Cursor)
 
