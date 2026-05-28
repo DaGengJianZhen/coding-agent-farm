@@ -1,0 +1,428 @@
+{
+  "id": "gVKcyQFm6LUH2HQ1",
+  "name": "本地 Agent 创建 Linear Issue、Blocked By 关系并在飞书原表创建子任务",
+  "active": true,
+  "isArchived": false,
+  "versionId": "2276208e-7d0a-49a2-b3b9-2207e852063a",
+  "triggerCount": 1,
+  "createdAt": "2026-05-27T09:03:43.255Z",
+  "updatedAt": "2026-05-28T02:34:41.327Z",
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "connections": {
+    "Webhook - 本地 Agent 创建 Linear Issue": {
+      "main": [
+        [
+          {
+            "node": "标准化并校验 Agent 请求",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "标准化并校验 Agent 请求": {
+      "main": [
+        [
+          {
+            "node": "Linear - 创建 Issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Linear - 创建 Issue": {
+      "main": [
+        [
+          {
+            "node": "准备 Linear 阻塞关系数据",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "准备 Linear 阻塞关系数据": {
+      "main": [
+        [
+          {
+            "node": "判断是否需要创建 Linear 阻塞关系",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "判断是否需要创建 Linear 阻塞关系": {
+      "main": [
+        [
+          {
+            "node": "Linear - 创建 blocked by 关系",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "准备飞书子任务数据",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Linear - 创建 blocked by 关系": {
+      "main": [
+        [
+          {
+            "node": "检查 Linear 阻塞关系结果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "检查 Linear 阻塞关系结果": {
+      "main": [
+        [
+          {
+            "node": "准备飞书子任务数据",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "准备飞书子任务数据": {
+      "main": [
+        [
+          {
+            "node": "判断是否可以创建飞书子任务",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "判断是否可以创建飞书子任务": {
+      "main": [
+        [
+          {
+            "node": "飞书 - 获取 Tenant Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "响应 - 返回创建结果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "飞书 - 获取 Tenant Token": {
+      "main": [
+        [
+          {
+            "node": "飞书 - 在原表创建子任务记录",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "飞书 - 在原表创建子任务记录": {
+      "main": [
+        [
+          {
+            "node": "响应 - 返回创建结果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-to-linear",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ff435fe6-2a42-4505-9a67-7dbcaa13061b",
+      "name": "Webhook - 本地 Agent 创建 Linear Issue",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        -416
+      ],
+      "webhookId": "agent-to-linear"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook - 本地 Agent 创建 Linear Issue').first().json.body || {};\n\n// 支持两种入参：\n// 1) issue 字段内放 Linear Issue 参数：{ issue: { title, description, ... }, feishu: {...} }\n// 2) 所有字段直接平铺在 body 顶层。\n// 注意：当前 n8n 环境不允许访问环境变量，因此不要读取 $env。\n// 字段映射属于 workflow 内部实现细节，不要求本地 Agent 传 field_names。\nconst issue = body.issue && typeof body.issue === 'object' ? body.issue : body;\nconst feishuInput = body.feishu && typeof body.feishu === 'object' ? body.feishu : {};\n\n// 如果不想让本地 Agent 每次传 app_token/table_id，可以把固定值写在这里。\nconst DEFAULT_FEISHU_CONFIG = {\n  app_token: '',\n  table_id: ''\n};\n\n// 你的飞书原表字段名固定写在 workflow 内部。\n// 后续表结构变化，只改这里，不让本地 Agent 每次传字段映射。\nconst FIELD_NAMES = {\n  parent_link: '父记录',\n  title: '任务标题',\n  description: '需求描述',\n  linear_issue_id: 'Linear Issue ID',\n  linear_url: 'Linear URL',\n  agent_status: 'Agent 状态',\n  task_type: '任务类型',\n  priority: '优先级',\n  repository: '目标仓库',\n  base_branch: 'Base Branch'\n};\n\nfunction firstNonEmpty(...values) {\n  for (const value of values) {\n    if (value !== undefined && value !== null && String(value).trim() !== '') {\n      return value;\n    }\n  }\n  return '';\n}\n\nfunction extractRecordIdFromUrl(url) {\n  if (!url) return '';\n  const text = String(url);\n  const pathMatch = text.match(/\\/record\\/([A-Za-z0-9]+)/);\n  if (pathMatch) return pathMatch[1];\n  const queryMatch = text.match(/[?&]record=([A-Za-z0-9]+)/);\n  if (queryMatch) return queryMatch[1];\n  return '';\n}\n\nfunction normalizeBool(value) {\n  return value === true || value === 'true' || value === 1 || value === '1';\n}\n\nfunction normalizeStringArray(value) {\n  if (value === undefined || value === null || value === '') return [];\n  if (Array.isArray(value)) {\n    return value\n      .map(v => String(v).trim())\n      .filter(Boolean);\n  }\n  return String(value)\n    .split(',')\n    .map(v => v.trim())\n    .filter(Boolean);\n}\n\nconst title = firstNonEmpty(issue.title, body.title);\nconst description = firstNonEmpty(issue.description, body.description);\nconst priority = firstNonEmpty(issue.priority, body.priority, 'Medium');\nconst taskType = firstNonEmpty(issue.task_type, issue.taskType, body.task_type, body.taskType);\nconst repository = firstNonEmpty(issue.repository, body.repository);\nconst teamId = firstNonEmpty(issue.team_id, issue.teamId, body.team_id, body.teamId);\nconst stateId = firstNonEmpty(issue.state_id, issue.stateId, body.state_id, body.stateId, 'ab47e930-2517-4b23-93fa-302833013d2c');\nconst agentEnabled = normalizeBool(firstNonEmpty(issue.agent_enabled, issue.agentEnabled, body.agent_enabled, body.agentEnabled, true));\nconst modelLabel = firstNonEmpty(issue.model_label, issue.modelLabel, body.model_label, body.modelLabel);\nconst parentTaskUrl = firstNonEmpty(body.parent_task_url, body.parentTaskUrl, feishuInput.parent_task_url, feishuInput.parentTaskUrl);\n\n// 每个 issue 调用一次时，blocked_by_issue_ids 必须传已经创建好的前置 Linear issue id / identifier。\n// 语义：当前新 issue 被这些前置 issue 阻塞，也就是：前置 issue blocks 当前新 issue。\nconst blockedByIssueIds = normalizeStringArray(\n  issue.blocked_by_issue_ids ??\n  issue.blockedByIssueIds ??\n  issue.blocked_by_linear_issue_ids ??\n  issue.blockedByLinearIssueIds ??\n  body.blocked_by_issue_ids ??\n  body.blockedByIssueIds ??\n  body.blocked_by_linear_issue_ids ??\n  body.blockedByLinearIssueIds\n);\n\nconst LINEAR_LABEL_IDS = {\n  'use-codex': 'acd82840-6cb5-4c9e-bbc8-f52dbed01eac',\n  'use-cursor': 'c654d731-c6eb-4113-ab96-192f3c5809b5'\n};\n\nconst labelIds = [];\nif (Array.isArray(issue.labelIds)) labelIds.push(...issue.labelIds);\nif (LINEAR_LABEL_IDS[modelLabel]) labelIds.push(LINEAR_LABEL_IDS[modelLabel]);\n\nconst parentRecordId = firstNonEmpty(\n  feishuInput.parent_record_id,\n  feishuInput.parentRecordId,\n  feishuInput.record_id,\n  feishuInput.recordId,\n  body.parent_record_id,\n  body.parentRecordId,\n  body.record_id,\n  body.recordId,\n  extractRecordIdFromUrl(parentTaskUrl)\n);\n\nconst appToken = firstNonEmpty(feishuInput.app_token, feishuInput.appToken, body.app_token, body.appToken, DEFAULT_FEISHU_CONFIG.app_token);\nconst tableId = firstNonEmpty(feishuInput.table_id, feishuInput.tableId, body.table_id, body.tableId, DEFAULT_FEISHU_CONFIG.table_id);\n\nif (!title) {\n  throw new Error('缺少必要字段：issue.title 或 title');\n}\n\nif (!teamId) {\n  throw new Error('缺少必要字段：issue.team_id / issue.teamId / team_id');\n}\n\nif (!appToken) {\n  throw new Error('缺少必要字段：feishu.app_token / app_token。当前 workflow 不使用环境变量。');\n}\n\nif (!tableId) {\n  throw new Error('缺少必要字段：feishu.table_id / table_id。当前 workflow 不使用环境变量。');\n}\n\nif (!parentRecordId) {\n  throw new Error('缺少父任务 record_id：请传 parent_task_url，或 feishu.parent_record_id / record_id');\n}\n\nconst linearInput = {\n  teamId,\n  title,\n  description: [\n    description,\n    '',\n    parentTaskUrl ? `飞书父任务：${parentTaskUrl}` : '',\n    blockedByIssueIds.length ? `Blocked by：${blockedByIssueIds.join(', ')}` : '',\n    `任务类型：${taskType}`,\n    `优先级：${priority}`,\n    `目标仓库：${repository}`,\n    `是否启用 Agent：${agentEnabled}`\n  ].filter(Boolean).join('\\n'),\n  stateId,\n  ...(labelIds.length ? { labelIds: [...new Set(labelIds)] } : {})\n};\n\nfor (const key of ['assigneeId', 'projectId', 'cycleId', 'parentId', 'estimate']) {\n  const value = issue[key] ?? body[key];\n  if (value !== undefined && value !== null && String(value).trim() !== '') {\n    linearInput[key] = value;\n  }\n}\n\nreturn [\n  {\n    json: {\n      raw: body,\n      title,\n      description,\n      priority,\n      taskType,\n      repository,\n      teamId,\n      stateId,\n      agentEnabled,\n      modelLabel,\n      parent_task_url: parentTaskUrl,\n      blocked_by_issue_ids: [...new Set(blockedByIssueIds)],\n      linearInput,\n      feishu: {\n        app_token: appToken,\n        table_id: tableId,\n        record_id: parentRecordId,\n        field_names: FIELD_NAMES\n      }\n    }\n  }\n];"
+      },
+      "id": "9188a042-f423-411f-93fd-d0f76b46433c",
+      "name": "标准化并校验 Agent 请求",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1056,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linear.app/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  query: `mutation IssueCreate($input: IssueCreateInput!) {\n    issueCreate(input: $input) {\n      success\n      issue {\n        id\n        identifier\n        title\n        url\n      }\n    }\n  }`,\n  variables: {\n    input: $json.linearInput\n  }\n}\n}}",
+        "options": {}
+      },
+      "id": "2a62239c-abe8-40c1-a149-d0abf583e5b5",
+      "name": "Linear - 创建 Issue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -784,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('标准化并校验 Agent 请求').first().json;\nconst response = $json;\n\nif (response.errors?.length) {\n  throw new Error('Linear GraphQL errors: ' + JSON.stringify(response.errors));\n}\n\nif (!response.data?.issueCreate?.success) {\n  throw new Error('Linear issueCreate failed: ' + JSON.stringify(response));\n}\n\nconst createdIssue = response.data.issueCreate.issue;\nconst blockers = Array.isArray(original.blocked_by_issue_ids) ? original.blocked_by_issue_ids : [];\n\nfunction gqlString(value) {\n  return JSON.stringify(String(value));\n}\n\nconst relationMutations = blockers.map((blockerId, index) => {\n  // Linear 语义：A blocks B。\n  // 这里 issueId 是前置 blocker，relatedIssueId 是刚创建的当前 issue。\n  return `r${index}: issueRelationCreate(input: { issueId: ${gqlString(blockerId)}, relatedIssueId: ${gqlString(createdIssue.id)}, type: blocks }) {\n    success\n    issueRelation {\n      id\n      type\n      issue { id identifier title url }\n      relatedIssue { id identifier title url }\n    }\n  }`;\n});\n\nconst canCreateLinearRelations = relationMutations.length > 0;\nconst linearRelationRequest = canCreateLinearRelations ? {\n  query: `mutation CreateIssueRelations {\n${relationMutations.join('\\n')}\n}`\n} : null;\n\nreturn [{\n  json: {\n    ...original,\n    linear_issue_id: createdIssue.id,\n    linear_identifier: createdIssue.identifier,\n    linear_title: createdIssue.title,\n    linear_url: createdIssue.url,\n    canCreateLinearRelations,\n    linearRelationRequest\n  }\n}];"
+      },
+      "id": "1fc988f7-8e1f-4247-8066-3cc279a05a76",
+      "name": "准备 Linear 阻塞关系数据",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-linear-blockers",
+              "leftValue": "={{$json.canCreateLinearRelations}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9a74c8a3-c38c-4e8e-ae1a-a3f7914aba94",
+      "name": "判断是否需要创建 Linear 阻塞关系",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linear.app/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.linearRelationRequest}}",
+        "options": {}
+      },
+      "id": "517df802-2340-4e0e-b7b9-137dede2ad58",
+      "name": "Linear - 创建 blocked by 关系",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -48,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('准备 Linear 阻塞关系数据').first().json;\nconst response = $json;\n\nif (response.errors?.length) {\n  throw new Error('Linear issueRelationCreate GraphQL errors: ' + JSON.stringify(response.errors));\n}\n\nconst relationKeys = Object.keys(response.data || {}).filter(key => key.startsWith('r'));\nconst failed = relationKeys.filter(key => response.data[key]?.success !== true);\nif (failed.length) {\n  throw new Error('Linear issueRelationCreate failed: ' + JSON.stringify(response));\n}\n\nconst relations = relationKeys.map(key => response.data[key].issueRelation).filter(Boolean);\n\nreturn [{\n  json: {\n    ...base,\n    linear_relations_created: relations.length,\n    linear_relations: relations\n  }\n}];"
+      },
+      "id": "b656853e-1f9c-4852-a1f0-8dbc723dd414",
+      "name": "检查 Linear 阻塞关系结果",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('准备 Linear 阻塞关系数据').first().json;\nconst relationChecked = $('检查 Linear 阻塞关系结果').isExecuted ? $('检查 Linear 阻塞关系结果').first().json : null;\n\nconst parentRecordId = original.feishu?.record_id || '';\nconst appToken = original.feishu?.app_token || '';\nconst tableId = original.feishu?.table_id || '';\nconst fieldNames = original.feishu?.field_names || {};\n\nconst canCreateFeishuSubtask = Boolean(\n  appToken &&\n  tableId &&\n  parentRecordId &&\n  fieldNames.parent_link\n);\n\nconst blockers = Array.isArray(original.blocked_by_issue_ids) ? original.blocked_by_issue_ids : [];\n\nfunction extractBaseBranch(description) {\n  if (!description) return '';\n  const lines = String(description).split(/\\r?\\n/);\n\n  for (const line of lines) {\n    const match = line.match(/(?:base\\s*branch|base_branch|baseBranch|基准分支)\\s*(?::|：|=|\\bis\\b)\\s*(.+)$/i);\n    if (!match) continue;\n\n    const value = match[1]\n      .trim()\n      .replace(/^['\"`]+|['\"`]+$/g, '')\n      .replace(/[，,;；。]+$/g, '')\n      .trim();\n    const branch = value.match(/^[^\\s,，;；)）]+/);\n    if (branch?.[0]) return branch[0].replace(/^['\"`]+|['\"`]+$/g, '');\n  }\n\n  return '';\n}\n\nconst baseBranch = extractBaseBranch(original.description);\nconst baseBranchFieldName = fieldNames.base_branch || 'Base Branch';\n\nconst childFields = {\n  [fieldNames.title]: original.title,\n  [fieldNames.description]: [\n    original.description || '',\n    '',\n    `Linear：${original.linear_url}`,\n    original.parent_task_url ? `父任务：${original.parent_task_url}` : '',\n    blockers.length ? `Blocked by：${blockers.join(', ')}` : '',\n  ].filter(Boolean).join('\\n'),\n  [fieldNames.parent_link]: [parentRecordId],\n  [fieldNames.linear_issue_id]: original.linear_identifier,\n  // 你的 Linear URL 字段是文本字段（A= 图标），所以这里写字符串；\n  // 如果将来改成 URL 字段，再改为 { text: original.linear_identifier, link: original.linear_url }。\n  [fieldNames.linear_url]: original.linear_url,\n  [fieldNames.agent_status]: original.agentEnabled ? '待触发' : '未启用',\n  [fieldNames.task_type]: original.taskType || '',\n  [fieldNames.priority]: original.priority || '',\n  [fieldNames.repository]: original.repository || '',\n  [baseBranchFieldName]: baseBranch\n};\n\n// 删除空字段名或空值，避免字段不存在/空值导致转换错误。\nfor (const key of Object.keys(childFields)) {\n  const value = childFields[key];\n  if (!key || key === 'undefined') {\n    delete childFields[key];\n    continue;\n  }\n  if (value === undefined || value === null || value === '') {\n    delete childFields[key];\n  }\n}\n\nreturn [{\n  json: {\n    ...original,\n    canCreateFeishuSubtask,\n    linear_relations_created: relationChecked?.linear_relations_created || 0,\n    linear_relations: relationChecked?.linear_relations || [],\n    feishu_child_record_fields: childFields\n  }\n}];"
+      },
+      "id": "4a08b436-c58e-4f82-ace9-ffc114fbac2e",
+      "name": "准备飞书子任务数据",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-parent-record-id",
+              "leftValue": "={{$json.feishu.record_id}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "has-app-token",
+              "leftValue": "={{$json.feishu.app_token}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "has-table-id",
+              "leftValue": "={{$json.feishu.table_id}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "has-parent-link-field",
+              "leftValue": "={{$json.feishu.field_names.parent_link}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "93d0f262-8bbb-41a1-9d74-ec668804a731",
+      "name": "判断是否可以创建飞书子任务",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "options": {}
+      },
+      "id": "5d6a6983-4a1c-4ff9-aa47-64841f133dbb",
+      "name": "飞书 - 获取 Tenant Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://open.feishu.cn/open-apis/bitable/v1/apps/{{$('准备飞书子任务数据').first().json.feishu.app_token}}/tables/{{$('准备飞书子任务数据').first().json.feishu.table_id}}/records?user_id_type=open_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.tenant_access_token}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { fields: $('准备飞书子任务数据').first().json.feishu_child_record_fields } }}",
+        "options": {}
+      },
+      "id": "e4c817b3-174f-4121-9884-479a5eb5eea7",
+      "name": "飞书 - 在原表创建子任务记录",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1232,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n(() => {\n  const d = $('准备飞书子任务数据').first().json;\n  const created = $('飞书 - 在原表创建子任务记录').isExecuted ? $('飞书 - 在原表创建子任务记录').first().json : null;\n  const recordId = created?.data?.record?.record_id || created?.data?.record_id || created?.record?.record_id || null;\n  return {\n    code: 0,\n    message: 'created',\n    data: {\n      ok: true,\n      linear_issue_id: d.linear_issue_id,\n      linear_identifier: d.linear_identifier,\n      linear_title: d.linear_title,\n      linear_url: d.linear_url,\n      blocked_by_issue_ids: d.blocked_by_issue_ids || [],\n      linear_relations_created: d.linear_relations_created || 0,\n      feishu_subtask_created: Boolean(recordId),\n      feishu_parent_record_id: d.feishu.record_id || null,\n      feishu_child_record_id: recordId\n    }\n  };\n})()\n}}",
+        "options": {}
+      },
+      "id": "b0df542f-ddae-456a-a344-cddfa4440d40",
+      "name": "响应 - 返回创建结果",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1504,
+        -416
+      ]
+    }
+  ],
+  "tags": [],
+  "meta": null,
+  "parentFolderId": null
+}

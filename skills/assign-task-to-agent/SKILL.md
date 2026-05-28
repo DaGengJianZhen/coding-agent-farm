@@ -27,7 +27,17 @@ Before calling the webhook, ensure these values are known:
 
 - `parent_task_url`: Feishu parent record URL.
 - `issue.title`: Linear issue title.
-- `issue.description`: Linear issue description or implementation brief.
+- `issue.description`: Linear issue description or implementation brief. It must include the base branch on its own line.
+
+## Base Branch In Description
+
+Every created issue must include the target base branch in `issue.description`. Prefer a single independent line near the top:
+
+```text
+Base branch: release/2026.05
+```
+
+Accepted forms include `Base branch: develop`, `Base branch: release/2026.05`, `基准分支: release/2026.05`, and list items such as `- Base branch: hotfix/1.0.3`. Use `:` as the separator.
 
 Use these defaults unless the user provides overrides:
 
@@ -52,7 +62,8 @@ Use the real table field names below. Do not send the older names `父任务`, `
   "agent_status": "Agent 状态",
   "task_type": "任务类型",
   "priority": "优先级",
-  "repository": "目标仓库"
+  "repository": "目标仓库",
+  "base_branch": "Base Branch"
 }
 ```
 
@@ -65,6 +76,7 @@ python ~/.cursor/skills/assign-task-to-agent/scripts/create_issue.py \
   --parent-task-url "https://yylfzxcmpc.feishu.cn/record/..." \
   --title "实现用户登录页" \
   --description "根据 PRD 完成登录页前端开发和接口联调。" \
+  --base-branch "release/2026.05" \
   --task-type frontend \
   --repository "openclaw/web"
 ```
@@ -77,6 +89,42 @@ python ~/.cursor/skills/assign-task-to-agent/scripts/create_issue.py \
   --parent-task-url "https://yylfzxcmpc.feishu.cn/record/..." \
   --title "测试 issue" \
   --description "webhook-test 联调请求。"
+```
+
+## Manual Payload
+
+If not using the helper script, send this JSON shape:
+
+```json
+{
+  "parent_task_url": "https://yylfzxcmpc.feishu.cn/record/Kq3crfLZBeE5fLccEhtctLQUnYe",
+  "feishu": {
+    "app_token": "EmPebJ3EAatSwusFGzLcDpkOnn0",
+    "table_id": "tbleoohWAsivMCQt",
+    "field_names": {
+      "parent_link": "父记录",
+      "title": "任务标题",
+      "description": "需求描述",
+      "linear_issue_id": "Linear Issue ID",
+      "linear_url": "Linear URL",
+      "agent_status": "Agent 状态",
+      "task_type": "任务类型",
+      "priority": "优先级",
+      "repository": "目标仓库",
+      "base_branch": "Base Branch"
+    }
+  },
+  "issue": {
+    "title": "实现用户登录页",
+    "description": "根据 PRD 完成登录页前端开发和接口联调。\n\nBase branch: release/2026.05",
+    "priority": "Medium",
+    "task_type": "frontend",
+    "repository": "openclaw/web",
+    "team_id": "c9812f44-3c7c-42c8-b29a-5be7e155fe7a",
+    "model_label": "use-codex",
+    "agent_enabled": true
+  }
+}
 ```
 
 ## Success Criteria

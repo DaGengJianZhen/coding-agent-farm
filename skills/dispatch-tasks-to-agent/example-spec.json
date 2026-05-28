@@ -4,6 +4,7 @@
     "priority": "Medium",
     "task_type": "frontend",
     "repository": "openclaw/web",
+    "base_branch": "release/2026.05",
     "team_id": "c9812f44-3c7c-42c8-b29a-5be7e155fe7a",
     "model_label": "use-codex",
     "agent_enabled": true

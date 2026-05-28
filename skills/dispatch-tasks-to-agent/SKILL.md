@@ -17,6 +17,16 @@ Use this skill to dispatch multiple tasks to agents from an issues list through 
 - Use `linear_issue_id` for dependency relations. `linear_identifier` such as `INS-123` is only for display and human reporting.
 - Stop immediately if any predecessor issue fails, because downstream relation creation would be invalid.
 
+## Base Branch Rule
+
+Every issue description must include the target base branch on its own line, preferably near the top:
+
+```text
+Base branch: release/2026.05
+```
+
+Accepted forms include `Base branch: develop`, `Base branch: release/2026.05`, `基准分支: release/2026.05`, and list items such as `- Base branch: hotfix/1.0.3`. Use `:` as the separator. For batches, set `defaults.base_branch` when all issues share one base branch, or set `base_branch` per issue when they differ.
+
 ## Spec Format
 
 Create a JSON spec file and pass it to the helper script:
@@ -28,6 +38,7 @@ Create a JSON spec file and pass it to the helper script:
     "priority": "Medium",
     "task_type": "frontend",
     "repository": "openclaw/web",
+    "base_branch": "release/2026.05",
     "team_id": "c9812f44-3c7c-42c8-b29a-5be7e155fe7a",
     "model_label": "use-codex",
     "agent_enabled": true

@@ -1,0 +1,12 @@
+{
+  "workflowId": "gVKcyQFm6LUH2HQ1",
+  "name": "本地 Agent 创建 Linear Issue、Blocked By 关系并在飞书原表创建子任务",
+  "versionId": "2276208e-7d0a-49a2-b3b9-2207e852063a",
+  "exportedAt": "2026-05-28T03:02:24.583Z",
+  "source": "https://wildmaker.app.n8n.cloud",
+  "webhook": {
+    "productionPath": "/webhook/agent-to-linear",
+    "testPath": "/webhook-test/agent-to-linear"
+  },
+  "triggerInfo": "This workflow has the following trigger(s):\n\n\nWebhook trigger(s):\n\n\n\t\t\t\t<trigger 1>\n\t\t\t\t\t - Node name: Webhook - 本地 Agent 创建 Linear Issue\n\t\t\t\t\t - Base URL: https://wildmaker.app.n8n.cloud/\n\t\t\t\t\t - Production path: /webhook/agent-to-linear\n\t\t\t\t\t - Test path: /webhook-test/agent-to-linear\n\t\t\t\t\t - HTTP Method: POST\n\t\t\t\t\t - Response Mode: Webhook is configured to respond using \"Respond to Webhook\" node.\n\t\t\t\t\t - No credentials required for this webhook.\n\t\t\t\t</trigger 1>"
+}

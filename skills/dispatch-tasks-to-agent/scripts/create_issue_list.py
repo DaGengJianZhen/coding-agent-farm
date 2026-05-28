@@ -85,11 +85,32 @@ def result_id(result):
     return result.get("linear_issue_id") or result.get("data", {}).get("linear_issue_id")
 
 
+def description_has_base_branch(description):
+    for line in str(description).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("-"):
+            stripped = stripped[1:].strip()
+        if stripped.lower().startswith(("base branch:", "基准分支:")):
+            return True
+    return False
+
+
 def command_for_issue(spec, issue, blocker_ids):
     defaults = spec.get("defaults", {})
     parent_task_url = issue.get("parent_task_url") or spec.get("parent_task_url")
     if not parent_task_url:
         raise ValueError(f"{issue['key']} is missing parent_task_url")
+
+    description = issue.get("description", "")
+    if not description:
+        raise ValueError(f"{issue['key']} is missing description")
+
+    base_branch = issue.get("base_branch", defaults.get("base_branch", ""))
+    if not base_branch and not description_has_base_branch(description):
+        raise ValueError(
+            f"{issue['key']} is missing base_branch or a standalone "
+            "description line such as 'Base branch: release/2026.05'"
+        )
 
     cmd = [
         sys.executable,
@@ -99,7 +120,7 @@ def command_for_issue(spec, issue, blocker_ids):
         "--title",
         issue["title"],
         "--description",
-        issue["description"],
+        description,
         "--priority",
         issue.get("priority", defaults.get("priority", "Medium")),
         "--task-type",
@@ -117,6 +138,9 @@ def command_for_issue(spec, issue, blocker_ids):
     repository = issue.get("repository", defaults.get("repository", ""))
     if repository:
         cmd.extend(["--repository", repository])
+
+    if base_branch:
+        cmd.extend(["--base-branch", base_branch])
 
     webhook = issue.get("webhook") or spec.get("webhook")
     if webhook:
@@ -198,9 +222,10 @@ def main():
                 blocker_ids.append(blocker_id)
 
             cmd = command_for_issue(spec, issue, blocker_ids)
+            env = os.environ.copy()
             completed = subprocess.run(
                 cmd,
-                env=os.environ.copy(),
+                env=env,
                 check=False,
                 text=True,
                 stdout=subprocess.PIPE,

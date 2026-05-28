@@ -22,7 +22,30 @@ FIELD_NAMES = {
     "task_type": "任务类型",
     "priority": "优先级",
     "repository": "目标仓库",
+    "base_branch": "Base Branch",
 }
+
+
+def description_has_base_branch(description):
+    for line in str(description).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("-"):
+            stripped = stripped[1:].strip()
+        if stripped.lower().startswith(("base branch:", "基准分支:")):
+            return True
+    return False
+
+
+def description_with_base_branch(description, base_branch):
+    description = str(description).rstrip()
+    if description_has_base_branch(description):
+        return description
+    if not base_branch:
+        raise ValueError(
+            "Issue description must include a standalone base branch line, "
+            "for example: Base branch: release/2026.05"
+        )
+    return f"{description}\n\nBase branch: {base_branch.strip()}"
 
 
 def parse_args():
@@ -32,6 +55,10 @@ def parse_args():
     parser.add_argument("--parent-task-url", required=True, help="Feishu parent record URL.")
     parser.add_argument("--title", required=True, help="Linear issue title.")
     parser.add_argument("--description", required=True, help="Linear issue description.")
+    parser.add_argument(
+        "--base-branch",
+        help="Base branch to append as 'Base branch: <value>' when description does not already include it.",
+    )
     parser.add_argument("--priority", default="Medium", help="Issue priority. Default: Medium.")
     parser.add_argument("--task-type", default="frontend", help="Task type field value.")
     parser.add_argument("--repository", default="", help="Target repository field value.")
@@ -70,9 +97,10 @@ def parse_args():
 
 
 def build_payload(args):
+    description = description_with_base_branch(args.description, args.base_branch)
     issue = {
         "title": args.title,
-        "description": args.description,
+        "description": description,
         "priority": args.priority,
         "task_type": args.task_type,
         "team_id": args.team_id,
@@ -115,7 +143,11 @@ def post_json(url, payload, timeout):
 
 def main():
     args = parse_args()
-    payload = build_payload(args)
+    try:
+        payload = build_payload(args)
+    except ValueError as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
 
     if args.dry_run:
         print(json.dumps(payload, ensure_ascii=False, indent=2))

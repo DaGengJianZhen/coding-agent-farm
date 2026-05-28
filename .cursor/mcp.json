@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "command": "/bin/bash",
+      "args": ["${workspaceFolder}/.cursor/scripts/n8n-mcp.sh"]
+    }
+  }
+}
