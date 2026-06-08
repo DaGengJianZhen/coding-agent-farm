@@ -1,0 +1,12 @@
+{
+  "workflowId": "GAqHMA06nyirmqei",
+  "name": "Linear 全状态同步到飞书 Agent 状态",
+  "versionId": "d1dcf7dd-e09e-4bda-b743-9710416ab7cd",
+  "exportedAt": "2026-05-28T00:00:00.000Z",
+  "source": "https://wildmaker.app.n8n.cloud",
+  "webhook": {
+    "productionPath": "/webhook/linear-to-feishu-status",
+    "testPath": "/webhook-test/linear-to-feishu-status"
+  },
+  "triggerInfo": "Linear Issue webhook → sync workflow state name to Feishu bitable field「Agent 状态」. Match Feishu row by field「Linear Issue ID」= Linear issue identifier (e.g. INS-32)."
+}

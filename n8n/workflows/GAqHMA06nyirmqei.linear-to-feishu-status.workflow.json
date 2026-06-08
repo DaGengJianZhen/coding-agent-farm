@@ -1,0 +1,282 @@
+{
+  "name": "Linear 全状态同步到飞书 Agent 状态",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "linear-to-feishu-status",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "34cb3851-1b64-48be-a782-5c1077f64047",
+      "name": "Webhook - Linear Issue 更新",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -928,
+        96
+      ],
+      "webhookId": "linear-to-feishu-status"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"message\": \"accepted\"\n}",
+        "options": {}
+      },
+      "id": "4595e370-ce71-4f25-8f8d-93ef3e74756b",
+      "name": "响应 - 已接收 Linear 请求",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -704,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// === 需要你在导入后修改的配置 ===\n// 1) 飞书多维表 app_token：如果多维表在知识库/wiki 中，填通过 wiki node token 换出来的 obj_token\nconst FEISHU_APP_TOKEN = 'EmPebJ3EAatSwusFGzLcDpkOnn0';\n// 2) 飞书数据表 table_id\nconst FEISHU_TABLE_ID = 'tbleoohWAsivMCQt';\n\n\n// 读取 Linear Webhook 的原始 body\nconst body = $('Webhook - Linear Issue 更新').first().json.body || {};\n\n// Linear Issue webhook 通常形如：{ action, type, data: { issue fields... } }\nconst issue = body.data || body.issue || {};\nconst action = body.action || body.type || '';\n\nconst state = issue.state || issue.workflowState || {};\nconst stateName = state.name || issue.stateName || '';\nconst stateId = state.id || issue.stateId || '';\nconst stateType = state.type || '';\n\nconst issueId = issue.id || '';\nconst identifier = issue.identifier || '';\nconst issueUrl = issue.url || '';\nconst title = issue.title || '';\n\nif (!identifier && !issueId) {\n  throw new Error('Linear Webhook 中缺少 issue.identifier 和 issue.id，无法匹配飞书记录。');\n}\n\nconst agentStatus = stateName || 'Unknown';\n\n// 当前版本默认用飞书字段「Linear Issue ID」匹配 Linear identifier，例如 INS-32。\n// 如果你后续新增了「Linear Issue UUID」字段，可以把 matchFieldName 改成 Linear Issue UUID，matchValue 改成 issueId。\nreturn [\n  {\n    json: {\n      raw: body,\n      action,\n      issueId,\n      identifier,\n      issueUrl,\n      title,\n      stateId,\n      stateName,\n      stateType,\n      agentStatus,\n      matchFieldName: 'Linear Issue ID',\n      matchValue: identifier || issueId,\n      config: {\n        feishu_app_token: FEISHU_APP_TOKEN,\n        feishu_table_id: FEISHU_TABLE_ID\n      }\n    }\n  }\n];"
+      },
+      "id": "88839cfe-2147-46f0-9c67-17398ee1402d",
+      "name": "解析 Linear Webhook",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-state-name",
+              "leftValue": "={{$json.stateName}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "has-match-value",
+              "leftValue": "={{$json.matchValue}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e8d23074-93d8-4a2c-9b02-ca61eca494bf",
+      "name": "判断是否可以同步状态",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "options": {}
+      },
+      "id": "044a597f-06a5-4c3d-9133-aa6b08e4f0e6",
+      "name": "飞书 - 获取 Tenant Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "vBLDcOpmPgKrH34D",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://open.feishu.cn/open-apis/bitable/v1/apps/{{$('解析 Linear Webhook').first().json.config.feishu_app_token}}/tables/{{$('解析 Linear Webhook').first().json.config.feishu_table_id}}/records/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.tenant_access_token}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  filter: {\n    conjunction: 'and',\n    conditions: [\n      {\n        field_name: $('解析 Linear Webhook').first().json.matchFieldName,\n        operator: 'is',\n        value: [String($('解析 Linear Webhook').first().json.matchValue)]\n      }\n    ]\n  },\n  page_size: 1\n}\n}}",
+        "options": {}
+      },
+      "id": "083f82ec-58c5-4017-93f0-a55ae2a78c41",
+      "name": "飞书 - 查询对应记录",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $('解析 Linear Webhook').first().json;\nconst searchResponse = $('飞书 - 查询对应记录').first().json;\n\nconst items = searchResponse.data?.items || [];\nif (!items.length) {\n  throw new Error(`没有在飞书多维表中找到 ${parsed.matchFieldName} = ${parsed.matchValue} 的记录。`);\n}\n\nconst record = items[0];\nconst recordId = record.record_id;\n\nreturn [\n  {\n    json: {\n      ...parsed,\n      feishu_record_id: recordId,\n      feishuUpdateBody: {\n        fields: {\n          'Agent 状态': parsed.agentStatus,\n          'Linear URL': parsed.issueUrl || undefined\n        }\n      }\n    }\n  }\n];"
+      },
+      "id": "26468cc8-3faf-4308-a8ee-69b22fe229ae",
+      "name": "准备飞书状态回写数据",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://open.feishu.cn/open-apis/bitable/v1/apps/{{$('解析 Linear Webhook').first().json.config.feishu_app_token}}/tables/{{$('解析 Linear Webhook').first().json.config.feishu_table_id}}/records/{{$('准备飞书状态回写数据').first().json.feishu_record_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$('飞书 - 获取 Tenant Token').first().json.tenant_access_token}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('准备飞书状态回写数据').first().json.feishuUpdateBody }}",
+        "options": {}
+      },
+      "id": "624d8862-dbc7-4799-9f4f-3e3c55477c02",
+      "name": "飞书 - 回写 Agent 状态",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Linear Issue 更新": {
+      "main": [
+        [
+          {
+            "node": "响应 - 已接收 Linear 请求",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "响应 - 已接收 Linear 请求": {
+      "main": [
+        [
+          {
+            "node": "解析 Linear Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "解析 Linear Webhook": {
+      "main": [
+        [
+          {
+            "node": "判断是否可以同步状态",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "飞书 - 获取 Tenant Token": {
+      "main": [
+        [
+          {
+            "node": "飞书 - 查询对应记录",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "飞书 - 查询对应记录": {
+      "main": [
+        [
+          {
+            "node": "准备飞书状态回写数据",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "准备飞书状态回写数据": {
+      "main": [
+        [
+          {
+            "node": "飞书 - 回写 Agent 状态",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "判断是否可以同步状态": {
+      "main": [
+        [
+          {
+            "node": "飞书 - 获取 Tenant Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d1dcf7dd-e09e-4bda-b743-9710416ab7cd",
+  "meta": {
+    "instanceId": "24adf81d94d646174a36893fddb0147d23d5f06e53a24170d84019a312efbe17"
+  },
+  "id": "GAqHMA06nyirmqei",
+  "tags": []
+}

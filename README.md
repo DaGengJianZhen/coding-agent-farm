@@ -6,9 +6,15 @@
 |------|-------------|
 | [`n8n/workflows/gVKcyQFm6LUH2HQ1.agent-to-linear.workflow.json`](n8n/workflows/gVKcyQFm6LUH2HQ1.agent-to-linear.workflow.json) | n8n 可导入的 workflow 定义（节点、连接、设置） |
 | [`n8n/workflows/gVKcyQFm6LUH2HQ1.agent-to-linear.meta.json`](n8n/workflows/gVKcyQFm6LUH2HQ1.agent-to-linear.meta.json) | 导出元数据（Webhook 路径、`triggerInfo` 等） |
+| [`n8n/workflows/GAqHMA06nyirmqei.linear-to-feishu-status.workflow.json`](n8n/workflows/GAqHMA06nyirmqei.linear-to-feishu-status.workflow.json) | Linear Issue 状态变更 → 回写飞书多维表「Agent 状态」 |
+| [`n8n/workflows/GAqHMA06nyirmqei.linear-to-feishu-status.meta.json`](n8n/workflows/GAqHMA06nyirmqei.linear-to-feishu-status.meta.json) | 同上 workflow 的导出元数据 |
 
 Workflow：**本地 Agent 创建 Linear Issue、Blocked By 关系并在飞书原表创建子任务**  
 Production webhook: `POST https://wildmaker.app.n8n.cloud/webhook/agent-to-linear`
+
+Workflow：**Linear 全状态同步到飞书 Agent 状态**  
+Production webhook: `POST https://wildmaker.app.n8n.cloud/webhook/linear-to-feishu-status`  
+（由 Linear Issue Webhook 触发；在飞书多维表中按「Linear Issue ID」= issue `identifier` 定位行，更新「Agent 状态」与「Linear URL」。）
 
 ## Skill usage guide
 
@@ -16,6 +22,7 @@ This repository provides Cursor skills for assigning implementation work to codi
 
 - [`skills/assign-task-to-agent/SKILL.md`](skills/assign-task-to-agent/SKILL.md): create one Linear issue and linked Feishu child task.
 - [`skills/dispatch-tasks-to-agent/SKILL.md`](skills/dispatch-tasks-to-agent/SKILL.md): create multiple Linear issues from a prepared task list, including dependency relations.
+- [`skills/create-symphony-linear-issue/SKILL.md`](skills/create-symphony-linear-issue/SKILL.md): create Symphony-ready Linear issues through the user's own Linear MCP.
 
 ### Required base branch
 
